@@ -1,0 +1,40 @@
+# An example of a Kubernetes configuration for pod deployment.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ignite-client
+  namespace: sn-push
+spec:
+  # The initial number of pods to be started by Kubernetes.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ignite-client
+  template:
+    metadata:
+      labels:
+        app: ignite-client
+    spec:
+      terminationGracePeriodSeconds: 60000
+      containers:
+      - name: ignite-client-node
+        image: 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/sn-push/ignite-poc
+        imagePullPolicy: Always
+        env:
+        - name: OPTION_LIBS
+          value: ignite-kubernetes,ignite-rest-http
+        - name: "JAVA_TOOL_OPTIONS"
+          value: "-XX:MinRAMPercentage=50.0 -XX:MaxRAMPercentage=80.0"
+        ports:
+        - containerPort: 47100 # communication SPI port
+        - containerPort: 47500 # discovery SPI port
+        - containerPort: 49112 # dafault JMX port
+        - containerPort: 10800 # thin clients/JDBC driver port
+        - containerPort: 8080 # REST API       - containerPort: 8080 # REST API
+        resources:
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+          requests:
+            cpu: "1"
+            memory: "2Gi"

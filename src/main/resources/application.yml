@@ -1,0 +1,23 @@
+application:
+  name: "spring-boot-webflux-template"
+  description: "An example WebFlux app using Java"
+
+server:
+  http:
+    port: 8080
+  compression:
+    enabled: true
+  port: 8080
+
+management:
+  endpoints:
+    enabled-by-default: true
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    metrics:
+      enabled: true
+    health:
+      enabled: true
+      show-details: always

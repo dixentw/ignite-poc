@@ -1,0 +1,66 @@
+apiVersion: v1
+data:
+  node-configuration.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+
+    <beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="
+            http://www.springframework.org/schema/beans
+            http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <bean class="org.apache.ignite.configuration.IgniteConfiguration">
+            <!-- Enable peer class loading. -->
+            <property name="peerClassLoadingEnabled" value="true"/>
+
+            <!--
+            <property name="deploymentSpi">
+                <bean class="org.apache.ignite.spi.deployment.uri.UriDeploymentSpi">
+                    <property name="temporaryDirectoryPath" value="/tmp/temp_ignite_libs"/>
+                    <property name="uriList">
+                        <list>
+                            <value>file://freq=30000@/ignite/work/user_libs</value>
+                        </list>
+                    </property>
+                </bean>
+            </property>
+
+            <property name="workDirectory" value="/ignite/work"/>
+
+            <property name="dataStorageConfiguration">
+                <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                    <property name="defaultDataRegionConfiguration">
+                        <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                            <property name="persistenceEnabled" value="true"/>
+                        </bean>
+                    </property>
+                </bean>
+            </property>
+            -->
+
+            <property name="discoverySpi">
+                <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
+                    <property name="ipFinder">
+                        <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKubernetesIpFinder">
+                            <constructor-arg>
+                                <bean class="org.apache.ignite.kubernetes.configuration.KubernetesConnectionConfiguration">
+                                    <property name="namespace" value="sn-push" />
+                                    <property name="serviceName" value="ignite-service" />
+                                </bean>
+                            </constructor-arg>
+                        </bean>
+                    </property>
+                </bean>
+            </property>
+
+        </bean>
+    </beans>
+
+kind: ConfigMap
+metadata:
+  labels:
+    env: development
+    state: poc
+  name: ignite-conf
+  namespace: sn-push
+
