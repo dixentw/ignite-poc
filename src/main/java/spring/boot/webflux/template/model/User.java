@@ -22,6 +22,9 @@ public class User {
     @QuerySqlField
     public int aid;
 
+    @QuerySqlField
+    public int morning;
+
     @Override
     public String toString() {
         return String.format("%d, %s, %s, %s, %d", id, deviceToken, pushToken, setting, aid);
