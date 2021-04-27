@@ -67,16 +67,23 @@ public class IgniteService {
         for (Map.Entry<String, List<String>> entry : tasks.entrySet()) {
             String joined = String.join(",", entry.getValue());
             log.info("going to send node: {}, tasks: {}", entry.getKey(), joined);
-            thickClient.message().send(entry.getKey(), joined);
+            thickClient.message().send(entry.getKey(), "task:"+joined);
         }
     }
 
     public void runSQLTask() {
-        List<String> ids = thickClient.cluster().nodes()
+        List<String> ids = thickClient.cluster().forClients().nodes()
                 .stream()
                 .map(n -> n.id().toString())
+                .filter(nodeId -> !nodeId.equals(thickClient.cluster().localNode().id().toString()))
                 .collect(Collectors.toList());
-        int length = 560000;
+        ids.add(thickClient.cluster().localNode().id().toString());
+        CacheConfiguration<Long, User> personCacheCfg = new CacheConfiguration<>();
+        personCacheCfg.setName("POCUSER");
+        personCacheCfg.setIndexedTypes(Long.class, User.class);
+        personCacheCfg.setQueryParallelism(4);
+        thickClient.getOrCreateCache(personCacheCfg);
+        int length = 2000000;
         int cnt = 0;
         for (String id : ids) {
             String msg = String.format("sql:%d,%d", cnt*length, length);
@@ -115,6 +122,7 @@ public class IgniteService {
         CacheConfiguration<Long, User> personCacheCfg = new CacheConfiguration<>();
         personCacheCfg.setName("POCUSER");
         personCacheCfg.setIndexedTypes(Long.class, User.class);
+        personCacheCfg.setQueryParallelism(4);
         thickClient.getOrCreateCache(personCacheCfg);
         IgniteDataStreamer<Long, User> stmr = thickClient.dataStreamer("POCUSER");
         stmr.allowOverwrite(true);

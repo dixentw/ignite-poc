@@ -22,14 +22,15 @@ public class IgniteConfig {
     public Ignite igniteClient() {
         // The node will be started as a client node.
         IgniteConfiguration cfg = new IgniteConfiguration();
-        //cfg.setClientMode(true);
-        //cfg.setPeerClassLoadingEnabled(true);
+        cfg.setClientMode(true);
+        cfg.setPeerClassLoadingEnabled(true);
         //cfg.setDeploymentMode(DeploymentMode.SHARED);
 
         // Setting up an IP Finder to ensure the client can locate the servers.
         KubernetesConnectionConfiguration conf = new KubernetesConnectionConfiguration();
         conf.setNamespace("sn-push");
-        conf.setServiceName("ignite-client-service");
+        //conf.setServiceName("ignite-client-service");
+        conf.setServiceName("ignite-service");
         TcpDiscoveryKubernetesIpFinder ipFinder = new TcpDiscoveryKubernetesIpFinder(conf);
         cfg.setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(ipFinder));
         Ignite client = Ignition.start(cfg);

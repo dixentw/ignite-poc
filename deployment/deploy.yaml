@@ -7,7 +7,7 @@ metadata:
   namespace: sn-push
 spec:
   # The initial number of pods to be started by Kubernetes.
-  replicas: 4
+  replicas: 8
   serviceName: ig-poc-cluster
   selector:
     matchLabels:
@@ -23,7 +23,7 @@ spec:
         image: apacheignite/ignite:2.10.0
         env:
         - name: OPTION_LIBS
-          value: ignite-kubernetes,ignite-rest-http,ignite-urideploy
+          value: ignite-kubernetes,ignite-rest-http
         - name: CONFIG_URI
           value: file:///ignite/config/node-configuration.xml
         - name: JVM_OPTS
@@ -37,11 +37,11 @@ spec:
         - containerPort: 8080 # REST API
         resources:
           limits:
-            cpu: "2"
-            memory: "4Gi"
+            cpu: "4"
+            memory: "8Gi"
           requests:
-            cpu: "2"
-            memory: "4Gi"
+            cpu: "4"
+            memory: "8Gi"
         volumeMounts:
         - mountPath: /ignite/config
           name: config-vol

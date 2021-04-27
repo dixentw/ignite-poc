@@ -19,6 +19,9 @@ public class User {
     @QuerySqlField
     public String platform;
 
+    @QuerySqlField(index = true)
+    public int morning;
+
     @QuerySqlField
     public int aid;
 
