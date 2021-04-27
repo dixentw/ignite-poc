@@ -60,7 +60,7 @@ public class IgniteListener {
         int offset = Integer.parseInt(partitions[0]);
         int limit = Integer.parseInt(partitions[1]);
         dbSource.loadFromDB(offset, limit);
-        //prestoSource.loadFromPresto(offset, limit);
+        //prestoSource.loadUsersFromPresto(offset, limit);
     }
 
     private void processTask(IgniteCompute compute, String msg) {

@@ -76,7 +76,7 @@ public class IgniteService {
                 .stream()
                 .map(n -> n.id().toString())
                 .collect(Collectors.toList());
-        int length = 560000;
+        int length = 2000000;
         int cnt = 0;
         for (String id : ids) {
             String msg = String.format("sql:%d,%d", cnt*length, length);

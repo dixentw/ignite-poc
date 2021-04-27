@@ -12,7 +12,7 @@ import java.sql.Statement;
 @Service
 public class DBSource {
     private final String dbName = "testdb";
-    private final String tableName = "push_user_1_all";
+    private final String tableName = "push_user_4_all";
 
     public void loadFromDB(int offset, int length) {
         log.info("parameters, off: {}, length {}", offset, length);
@@ -24,7 +24,7 @@ public class DBSource {
             log.info("jdbc url : {}", jdbcUrl);
             Connection connection = clickHouseDataSource.getConnection();
             Statement statement = connection.createStatement();
-            String sql = String.format("select id, device_token from %s.%s limit %d offset %d", dbName, tableName, length, offset);
+            String sql = String.format("select * from %s.%s where edition='ja_JP' and id > %d and id <= %d", dbName, tableName, offset, offset+length);
             log.info("try to query as =====   {}", sql);
             ResultSet rs = statement.executeQuery(sql);
             int cnt = 0;

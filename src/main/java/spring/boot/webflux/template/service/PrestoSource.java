@@ -26,8 +26,8 @@ public class PrestoSource {
             Connection conn = clickHouseDataSource.getConnection();
             conn.setAutoCommit(false);
             PreparedStatement pstmt = conn.prepareStatement(
-                    "INSERT INTO push_user_3_all (id, device_token, code, push_token, creation_timestamp, update_timestamp, general_configuration, server_configuration" +
-                            "profile, last_delivery_timestamp, last_survey_timestamp, edition, push_time, sign)" +
+                    "INSERT INTO push_user_4_all (id, device_token, code, push_token, creation_timestamp, update_timestamp, general_configuration, server_configuration" +
+                            ", profile, last_delivery_timestamp, last_survey_timestamp, edition, push_time, sign)" +
                             " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             int cnt = 0;
             for (Map<String, Object> u: users) {
@@ -50,7 +50,7 @@ public class PrestoSource {
                 pstmt.setLong(11, (Long) u.get("create_timestamp"));
                 pstmt.setString(12, edition);
                 pstmt.setString(13, "10800");
-                pstmt.setInt(14, 10);
+                pstmt.setInt(14, 1);
                 pstmt.addBatch();
                 cnt++;
             }
@@ -78,7 +78,7 @@ public class PrestoSource {
             properties.setProperty("user", "nobody");
             Connection connection = DriverManager.getConnection(url, properties);
             Statement statement = connection.createStatement();
-            String sql = String.format("select id, code, create_timestamp, update_timestamp device_token, push_token, general_configuration, server_configuration, profile from %s.%s where id >%d and id<=%d and dt='2021-04-26'", dbName, tableName, offset, offset+length);
+            String sql = String.format("select id, code, creation_timestamp, update_timestamp, device_token, push_token, general_configuration, server_configuration, profile from %s.%s where id >%d and id<=%d and dt='2021-04-26'", dbName, tableName, offset, offset+length);
             log.info("try to query as =====   {}", sql);
             ResultSet rs = statement.executeQuery(sql);
             int cnt = 0;
@@ -87,7 +87,7 @@ public class PrestoSource {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", rs.getLong("id"));
                 map.put("code", rs.getString("code"));
-                map.put("create_timestamp", rs.getLong("create_timestamp"));
+                map.put("create_timestamp", rs.getLong("creation_timestamp"));
                 map.put("update_timestamp", rs.getLong("update_timestamp"));
                 map.put("device_token", rs.getString("device_token"));
                 map.put("push_token", rs.getString("push_token"));
@@ -96,7 +96,7 @@ public class PrestoSource {
                 map.put("profile", rs.getString("profile"));
                 cnt++;
                 users.add(map);
-                if (cnt % 10000 ==0) {
+                if (cnt % 80 ==0) {
                     log.info("sample user: {}", map);
                     clickHouseBatchInsert(users);
                     users.clear();
