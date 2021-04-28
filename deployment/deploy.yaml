@@ -27,7 +27,7 @@ spec:
         - name: CONFIG_URI
           value: file:///ignite/config/node-configuration.xml
         - name: JVM_OPTS
-          value: "-DIGNITE_WAL_MMAP=false"
+          value: "-Xms1000M -Xmx2000M"
         ports:
         # Ports to open.
         - containerPort: 47100 # communication SPI port

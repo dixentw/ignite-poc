@@ -1,5 +1,6 @@
 package spring.boot.webflux.template.model;
 
+import org.apache.ignite.cache.affinity.AffinityKeyMapped;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 
 public class User {
@@ -9,24 +10,32 @@ public class User {
     @QuerySqlField(index = true)
     public String deviceToken;
 
-    public String pushToken;
+    @QuerySqlField
+    public String code;
 
-    public String setting;
+    @QuerySqlField
+    public String pushToken;
 
     @QuerySqlField(index = true)
     public String edition;
 
     @QuerySqlField
-    public String platform;
+    public long createTimestamp;
+
+    @QuerySqlField
+    public long updateTimestamp;
+
+    @QuerySqlField
+    public String generalConf;
+
+    @QuerySqlField
+    public String serverConf;
+
+    @QuerySqlField
+    public String profile;
 
     @QuerySqlField(index = true)
     public int morning;
 
-    @QuerySqlField
-    public int aid;
 
-    @Override
-    public String toString() {
-        return String.format("%d, %s, %s, %s, %d", id, deviceToken, pushToken, setting, aid);
-    }
 }

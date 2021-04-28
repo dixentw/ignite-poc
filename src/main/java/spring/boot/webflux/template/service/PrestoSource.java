@@ -28,15 +28,15 @@ public class PrestoSource {
 
     public void loadUsersFromPresto(int offset, int length) {
         log.info("parameters, off: {}, length {}", offset, length);
-        offset += 100;
+        offset += 10000;
         try {
             // URL parameters
             String url = "jdbc:presto://presto.smartnews.internal:8081/hive/smartnews";
             Properties properties = new Properties();
-            properties.setProperty("user", "nobody");
+            properties.setProperty("user", "dixen.cheng");
             Connection connection = DriverManager.getConnection(url, properties);
             Statement statement = connection.createStatement();
-            String sql = String.format("select id, device_token, push_token, general_configuration from %s.%s where id >%d and id<=%d and dt='2021-04-25'", dbName, tableName, offset, offset+length);
+            String sql = String.format("select id, code, creation_timestamp, update_timestamp, device_token, push_token, general_configuration, server_configuration, profile from %s.%s where id >%d and id<=%d and dt='2021-04-26'", dbName, tableName, offset, offset+length);
             log.info("try to query as =====   {}", sql);
             ResultSet rs = statement.executeQuery(sql);
             IgniteDataStreamer<Long, User> stmr = thickClient.dataStreamer("POCUSER");
@@ -44,9 +44,14 @@ public class PrestoSource {
             while (rs.next()) {
                 User u = new User();
                 u.id = rs.getLong("id");
-                u.setting = rs.getString("general_configuration");
+                u.generalConf = rs.getString("general_configuration");
                 u.deviceToken = rs.getString("device_token");
                 u.pushToken = rs.getString("push_token");
+                u.createTimestamp = rs.getLong("creation_timestamp");
+                u.updateTimestamp = rs.getLong("update_timestamp");
+                u.code = rs.getString("code");
+                u.serverConf = rs.getString("server_configuration");
+                u.profile = rs.getString("profile");
                 if (u.id % 2 == 0) {
                     u.edition = "ja_JP";
                 } else {

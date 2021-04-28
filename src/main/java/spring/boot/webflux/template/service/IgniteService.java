@@ -7,6 +7,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCompute;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cluster.ClusterNode;
@@ -64,12 +65,42 @@ public class IgniteService {
             tasks.put(node, ps);
         }
         log.info("tasks distribution : {}", tasks);
+        String localId = thickClient.cluster().localNode().id().toString();
         for (Map.Entry<String, List<String>> entry : tasks.entrySet()) {
+            if (entry.getKey().equals(localId)) {
+                continue;
+            }
             String joined = String.join(",", entry.getValue());
             log.info("going to send node: {}, tasks: {}", entry.getKey(), joined);
             thickClient.message().send(entry.getKey(), "task:"+joined);
         }
+        String joined = String.join(",", tasks.get(localId));
+        log.info("going to send node: {}, tasks: {}", localId, joined);
+        thickClient.message().send(localId, "task:"+joined);
     }
+
+/*
+    public void runTask() {
+        Affinity<Long> affinityFunc = thickClient.affinity("POCUSER");
+        Map<Integer, List<String>> tasks = new HashMap<>();
+        int i=0;
+        for (ClusterNode n : thickClient.cluster().forServers().nodes()) {
+            int[] ps = affinityFunc.primaryPartitions(n);
+            tasks.put(i, Arrays.stream(ps).mapToObj(String::valueOf).collect(Collectors.toList()));
+            i++;
+            log.info("node: {}, partiions: {}", ps);
+        }
+        // job distribution by hand
+        List<String> ids = thickClient.cluster().forClients().nodes()
+                .stream()
+                .filter(n -> !n.id().equals(thickClient.cluster().forLocal().node().id()))
+                .map(n -> n.id().toString())
+                .collect(Collectors.toList());
+        for (int j=0; j<ids.size(); j++) {
+            thickClient.message().send(ids.get(j), "task:"+String.join(",",tasks.get(j)));
+        }
+        thickClient.message().send(thickClient.cluster().localNode().id().toString(), "task:"+String.join(",",tasks.get(0)));
+    }*/
 
     public void runSQLTask() {
         List<String> ids = thickClient.cluster().forClients().nodes()
@@ -133,10 +164,8 @@ public class IgniteService {
             u.id = Long.parseLong(line[0]);
             u.deviceToken = line[1];
             u.pushToken = line[3];
-            u.setting = line[6];
+            u.generalConf = line[6];
             u.edition = line[12];
-            u.platform = line[11];
-            u.aid = (int) (u.id % 8);
             stmr.addData(u.id, u);
             counter++;
         }

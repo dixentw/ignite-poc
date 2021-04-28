@@ -9,19 +9,25 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
+import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.internal.IgniteFeatures;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.resources.IgniteInstanceResource;
+import org.graalvm.compiler.graph.spi.Canonicalizable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.cache.CacheProperties;
 import org.springframework.stereotype.Service;
 
 import javax.cache.Cache;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -52,7 +58,7 @@ public class IgniteListener {
                 processSQLTask(parts[1]);
             } else if (parts[0].equals("task")) {
                 //processScanTask(thickClient.compute(thickClient.cluster().forServers()), parts[1]);
-                processTask(thickClient.compute(thickClient.cluster().forServers()), parts[1]);
+                processTask(thickClient, parts[1]);
             }
             log.info("done, {}", System.currentTimeMillis());
             return true;
@@ -73,34 +79,35 @@ public class IgniteListener {
         prestoSource.loadUsersFromPresto(offset, limit);
     }
 
-    private void processTask(IgniteCompute compute, String msg) {
+    private void processTask(Ignite client, String msg) {
+        IgniteCompute compute = client.compute(client.cluster().forServers());
         long start = System.currentTimeMillis();
         String[] partitions = msg.split(",");
-        int counter = 0;
-        for (String p: partitions) {
-            int partition = Integer.parseInt(p);
-            List<String> res = compute.affinityCall(CacheName, partition, new ReadTask(partition));
-            for (String obj : res) {
+        List<IgniteFuture<List<BinaryObject>>> futures = Arrays.stream(partitions)
+            .map(Integer::parseInt)
+            .map(p -> compute.affinityCallAsync(CacheName, p, new ReadScanTask(p)))
+            .collect(Collectors.toList());
+        futures.stream().forEach((f) -> f.listen(ret -> {
+            int counter = 0;
+            for (BinaryObject obj : ret.get()) {
                 counter++;
-                if (counter % 1000 == 0) log.info("sample :{}", obj);
+                if (counter % 10000 == 0) log.info("sample :{}", obj);
             }
-        }
-        log.info("end of processing, cnt: {} ,took: {}", counter, System.currentTimeMillis() - start);
-    }
-
-    private void processScanTask(IgniteCompute compute, String msg) {
-        long start = System.currentTimeMillis();
-        String[] partitions = msg.split(",");
-        int counter = 0;
+            log.info("the result: {}", counter);
+        }));
+        log.info("quick return {}", System.currentTimeMillis() - start);
+        /*
         for (String p: partitions) {
+            long b = System.currentTimeMillis();
             int partition = Integer.parseInt(p);
             List<BinaryObject> res = compute.affinityCall(CacheName, partition, new ReadScanTask(partition));
             for (BinaryObject obj : res) {
                 counter++;
-                if (counter % 1000 == 0) log.info("sample :{}", obj);
+                if (counter % 10000 == 0) log.info("sample :{}", obj);
             }
-        }
-        log.info("end of processing, cnt: {} ,took: {}", counter, System.currentTimeMillis() - start);
+            log.info("agg : took{}", System.currentTimeMillis() -b);
+        }*/
+        //log.info("end of processing, cnt: {} ,took: {}", counter, System.currentTimeMillis() - start);
     }
 
     private static class ReadScanTask implements IgniteCallable<List<BinaryObject>> {
@@ -116,20 +123,23 @@ public class IgniteListener {
         @Override
         public List<BinaryObject> call() {
             System.out.println("get call with partition id >>>>>>>>>>>>>>              " + partition);
+            long start = System.currentTimeMillis();
             IgniteBiPredicate<Long, BinaryObject> filter = (key, p) -> p.field("edition").equals("ja_JP");
             IgniteCache<Long, BinaryObject> cache = ignite.cache("POCUSER").withKeepBinary();
 
             List<BinaryObject> obs = new ArrayList<>();
-            try (QueryCursor<Cache.Entry<Long, BinaryObject>> qryCursor = cache.query(new ScanQuery<>(filter).setPartition(partition))) {
+            try (QueryCursor<Cache.Entry<Long, BinaryObject>> qryCursor = cache.query(new ScanQuery<>(filter).setPartition(partition).setLocal(true))) {
                 qryCursor.forEach((c) -> obs.add(c.getValue()));
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            System.out.println(String.format("finished : %d, took: %d", obs.size(), System.currentTimeMillis() - start));
             return obs;
         }
+
     }
 
-    private static class ReadTask implements IgniteCallable<List<String>> {
+    private static class ReadTask implements IgniteCallable<List<BinaryObject>> {
         private int partition;
 
         public ReadTask(int partition) {
@@ -140,22 +150,50 @@ public class IgniteListener {
         private Ignite ignite;
 
         @Override
-        public List<String> call() {
-            System.out.println("get call with partition id >>>>>>>>>>>>>>              " + partition);
+        public List<BinaryObject> call() {
+            System.out.println("get call with partition ids " + partition);
+            long start = System.currentTimeMillis();
             IgniteCache<Long, BinaryObject> cache = ignite.cache("POCUSER").withKeepBinary();
-            List<String> res = new ArrayList<>();
+            List<BinaryObject> res = new ArrayList<>();
             SqlFieldsQuery sql = new SqlFieldsQuery(
-                    "select * from pocuser.user where edition='ja_JP'").setPartitions(partition);
+                  //  "select id, deviceToken, pushToken, generalConf, serverConf, profile, createTimestamp, updateTimestamp, code from pocuser.user where edition='ja_JP'")
+                "select id, deviceToken, generalConf from pocuser.user where edition='ja_JP'"
+            ).setPartitions(partition).setLocal(true);
             try {
+                FieldsQueryCursor<List<?>> cursor = cache.query(sql);
+                cursor.forEach((row)-> {
+                    BinaryObjectBuilder builder = ignite.binary().builder("spring.boot.webflux.template.model");
+                    builder.setField("id", row.get(0));
+                    builder.setField("deviceToken", row.get(1));
+                    //builder.setField("pushToken", row.get(2));
+                    builder.setField("generalConf", row.get(3));
+                    //builder.setField("serverConf", row.get(4));
+                    //builder.setField("profile", row.get(5));
+                    //builder.setField("createTimestamp", row.get(6));
+                    //builder.setField("updateTimestamp", row.get(7));
+                    //builder.setField("code", row.get(8));
+                    res.add(builder.build());
+                });
+                cursor.close();
+            /*
                 List<List<?>> ret = cache.query(sql).getAll();
                 for (List<?> row : ret) {
-                    //String r = String.format("%d, %s, %s, %s, %d", row.get(0), row.get(1), row.get(2), row.get(3), row.get(4));
-                    String r = row.toString();
-                    res.add(r);
-                }
+                    BinaryObjectBuilder builder = ignite.binary().builder("spring.boot.webflux.template.model");
+                    builder.setField("id", row.get(0));
+                    builder.setField("deviceToken", row.get(1));
+                    builder.setField("pushToken", row.get(2));
+                    builder.setField("generalConf", row.get(3));
+                    builder.setField("serverConf", row.get(4));
+                    builder.setField("profile", row.get(5));
+                    builder.setField("createTimestamp", row.get(6));
+                    builder.setField("updateTimestamp", row.get(7));
+                    builder.setField("code", row.get(8));
+                    res.add(builder.build());
+                }*/
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            System.out.println(String.format("finished : %d, took: %d", res.size(), System.currentTimeMillis() - start));
             return res;
         }
     }
