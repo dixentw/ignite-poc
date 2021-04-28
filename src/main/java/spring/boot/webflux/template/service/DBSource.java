@@ -12,7 +12,7 @@ import java.sql.Statement;
 @Service
 public class DBSource {
     private final String dbName = "testdb";
-    private final String tableName = "push_user_4_all";
+    private final String tableName = "push_user_6_all";
 
     public void loadFromDB(int offset, int length) {
         log.info("parameters, off: {}, length {}", offset, length);
@@ -24,13 +24,13 @@ public class DBSource {
             log.info("jdbc url : {}", jdbcUrl);
             Connection connection = clickHouseDataSource.getConnection();
             Statement statement = connection.createStatement();
-            String sql = String.format("select * from %s.%s where edition='ja_JP' and id > %d and id <= %d", dbName, tableName, offset, offset+length);
+            String sql = String.format("select * from %s.%s where id > %d and id <= %d and edition='ja_JP'", dbName, tableName, offset, offset+length);
             log.info("try to query as =====   {}", sql);
             ResultSet rs = statement.executeQuery(sql);
             int cnt = 0;
             while (rs.next()) {
                 cnt++;
-                if (cnt % 10000 ==0) log.info("sample user: {}", rs.getString("device_token"));
+                if (cnt % 10000 ==0) log.info("sample user: {}, {}, {}, {}", rs.getString("device_token"), rs.getString("general_configuration"), rs.getString("server_configuration"), rs.getString("profile"));
             }
             long endTime = System.currentTimeMillis();
             log.info("end of query clickhouse cnt : {}, time lasp: {}", cnt, endTime-startTime);
